@@ -3,10 +3,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
 
-DEFAULT_DIR = Path.home() / '.devprod'
-DEFAULT_DB = DEFAULT_DIR / 'tracker.db'
+DEFAULT_DIR = Path.home() / ".devprod"
+DEFAULT_DB = DEFAULT_DIR / "tracker.db"
 
-CREATE_SQL = '''
+CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   date TEXT NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS entries (
   notes TEXT,
   created_at TEXT NOT NULL
 );
-'''
+"""
 
 class DB:
     def __init__(self, path: Optional[Path] = None):
@@ -30,20 +30,47 @@ class DB:
         cur.executescript(CREATE_SQL)
         self.conn.commit()
 
-    def add_entry(self, date: str, project: str, hours: float, notes: str = '') -> int:
+    def add_entry(self, date: str, project: str, hours: float, notes: str = "") -> int:
         cur = self.conn.cursor()
-                                                                                       s           ject,                     d_at                          
-                                  , ho                                  , hnn                                  , hd
+        cur.execute(
+            "INSERT INTO entries (date, project, hours, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+            (date, project, hours, notes, datetime.now().isoformat())
+        )
+        self.conn.commit()
+        return cur.lastrowid
 
-    def list_entri    def list_entri    def list_enstr     def list_entri    def list_entri  cu    def list_entri  ()    def list_entri  d end    def list_entri   cu    deLECT * F    def list_entri    defTWEEN   AND ? ORDER     def list_entri    def list_entri    def list_en      def list_entri    def list_entri    def list_ene = ? ORDER BY id', (start,))
+    def list_entries(self, start: Optional[str] = None, end: Optional[str] = None) -> List:
+        cur = self.conn.cursor()
+        if start and not end:
+            cur.execute("SELECT * FROM entries WHERE date >= ? ORDER BY date DESC, id DESC", (start,))
+        elif start and end:
+            cur.execute("SELECT * FROM entries WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC", (start, end))
         else:
-            cur.execute('SELECT * FROM entries ORDER BY date DESC, id DE            cur.execute('SELECT * FROM edef summary(self, start: s            cural[str            cur.execute('SEow]:
-                               )
-                               .ex                               .ex                               .ex                 OUP                               ',                               .ex                               .ex                               .ex                 OUP                               C',                               .ex                               .ex                               .ex            t:
-                               .ex                               .ex                               .ex                 OUP                               ',                               .ex                               .ex                               .ex                 OUP                               C',                               .ex           
+            cur.execute("SELECT * FROM entries ORDER BY date DESC, id DESC")
+        return cur.fetchall()
 
+    def summary(self, start: Optional[str] = None, end: Optional[str] = None) -> List:
+        cur = self.conn.cursor()
+        if start and not end:
+            cur.execute("SELECT project, SUM(hours) as total FROM entries WHERE date >= ? GROUP BY project ORDER BY total DESC", (start,))
+        elif start and end:
+            cur.execute("SELECT project, SUM(hours) as total FROM entries WHERE date BETWEEN ? AND ? GROUP BY project ORDER BY total DESC", (start, end))
+        else:
+            cur.execute("SELECT project, SUM(hours) as total FROM entries GROUP BY project ORDER BY total DESC")
+        return cur.fetchall()
 
-           e(self):
+    def total_hours(self, start: Optional[str] = None, end: Optional[str] = None) -> float:
+        cur = self.conn.cursor()
+        if start and not end:
+            cur.execute("SELECT SUM(hours) FROM entries WHERE date >= ?", (start,))
+        elif start and end:
+            cur.execute("SELECT SUM(hours) FROM entries WHERE date BETWEEN ? AND ?", (start, end))
+        else:
+            cur.execute("SELECT SUM(hours) FROM entries")
+        result = cur.fetchone()
+        return result[0] or 0.0
+
+    def close(self):
         try:
             self.conn.close()
         except Exception:
